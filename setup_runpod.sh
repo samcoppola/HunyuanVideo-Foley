@@ -74,22 +74,22 @@ fi
 
 source .venv/bin/activate
 
-pip install --upgrade pip -q
+pip install --upgrade pip
 
 if python -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
     echo "    PyTorch CUDA già disponibile: $(python -c 'import torch; print(torch.__version__)')"
 else
     echo "    PyTorch CUDA non trovato, installazione da requirements..."
-    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124 -q
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 fi
 
 # Installa le dipendenze (escluso torch già presente)
 pip install -r requirements.txt --no-deps 2>/dev/null || pip install -r requirements.txt
-pip install -e . -q
+pip install -e .
 
 # Forza reinstall della versione custom di transformers con SigLIP2
 echo "    Installazione transformers custom (SigLIP2)..."
-pip install git+https://github.com/huggingface/transformers@v4.49.0-SigLIP-2 --force-reinstall -q
+pip install git+https://github.com/huggingface/transformers@v4.49.0-SigLIP-2 --force-reinstall
 
 echo "    Dipendenze installate."
 
