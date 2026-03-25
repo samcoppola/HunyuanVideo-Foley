@@ -64,7 +64,18 @@ echo ""
 echo "[2/4] Setting up Python virtual environment..."
 
 apt-get update -q
-apt-get install -y ffmpeg
+if ! command -v ffmpeg &>/dev/null; then
+    echo "    ffmpeg non trovato, installazione binario statico..."
+    if apt-get install -y ffmpeg 2>/dev/null; then
+        echo "    ffmpeg installato via apt."
+    else
+        wget -q https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+        tar xf ffmpeg-release-amd64-static.tar.xz
+        cp ffmpeg-*-amd64-static/ffmpeg /usr/local/bin/
+        rm -rf ffmpeg-*-amd64-static ffmpeg-release-amd64-static.tar.xz
+        echo "    ffmpeg installato via binario statico."
+    fi
+fi
 if ! command -v python3.11 &>/dev/null; then
     apt-get install -y python3.11 python3.11-venv
 fi
