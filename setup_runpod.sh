@@ -83,13 +83,9 @@ else
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 fi
 
-# Installa le dipendenze (escluso torch già presente)
-pip install -r requirements.txt --no-deps 2>/dev/null || pip install -r requirements.txt
+# Installa tutte le dipendenze (inclusa la versione custom di transformers già in requirements.txt)
+pip install -r requirements.txt
 pip install -e .
-
-# Forza reinstall della versione custom di transformers con SigLIP2
-echo "    Installazione transformers custom (SigLIP2)..."
-pip install git+https://github.com/huggingface/transformers@v4.49.0-SigLIP-2 --force-reinstall
 
 echo "    Dipendenze installate."
 
