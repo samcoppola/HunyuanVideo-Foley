@@ -63,6 +63,8 @@ cd "$REPO_DIR"
 echo ""
 echo "[2/4] Setting up Python virtual environment..."
 
+apt-get update -q
+apt-get install -y ffmpeg
 if ! command -v python3.11 &>/dev/null; then
     apt-get install -y python3.11 python3.11-venv
 fi
