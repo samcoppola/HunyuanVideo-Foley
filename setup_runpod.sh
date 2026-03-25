@@ -63,18 +63,18 @@ cd "$REPO_DIR"
 echo ""
 echo "[2/4] Setting up Python virtual environment..."
 
-apt-get update -q
+# ffmpeg sul Network Volume — persiste tra riavvii del pod
+mkdir -p "$WORKSPACE/bin"
+export PATH="$WORKSPACE/bin:$PATH"
 if ! command -v ffmpeg &>/dev/null; then
-    echo "    ffmpeg non trovato, installazione binario statico..."
-    if apt-get install -y ffmpeg 2>/dev/null; then
-        echo "    ffmpeg installato via apt."
-    else
-        wget -q https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
-        tar xf ffmpeg-release-amd64-static.tar.xz
-        cp ffmpeg-*-amd64-static/ffmpeg /usr/local/bin/
-        rm -rf ffmpeg-*-amd64-static ffmpeg-release-amd64-static.tar.xz
-        echo "    ffmpeg installato via binario statico."
-    fi
+    echo "    ffmpeg non trovato, installazione su Network Volume..."
+    wget -q https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+    tar xf ffmpeg-release-amd64-static.tar.xz
+    cp ffmpeg-*-amd64-static/ffmpeg "$WORKSPACE/bin/"
+    rm -rf ffmpeg-*-amd64-static ffmpeg-release-amd64-static.tar.xz
+    echo "    ffmpeg installato in $WORKSPACE/bin/"
+else
+    echo "    ffmpeg già presente."
 fi
 if ! command -v python3.11 &>/dev/null; then
     apt-get install -y python3.11 python3.11-venv

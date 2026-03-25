@@ -35,6 +35,8 @@ GUIDANCE="${GUIDANCE:-7.5}"
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ffmpeg è sul Network Volume
+export PATH="/workspace/bin:$PATH"
 MODELS_DIR="$SCRIPT_DIR/models"
 OUTPUT_DIR="$SCRIPT_DIR/outputs"
 
