@@ -2,131 +2,145 @@
 # =============================================================================
 # Download script — HunyuanVideo-Foley (CPU pod)
 # =============================================================================
-# Esegui su un pod CPU economico per scaricare tutti i modelli sul Network
-# Volume prima di passare al pod GPU.
+# Scarica modelli e cache HuggingFace sul Network Volume.
+# Funziona su qualsiasi pod minimale, indipendentemente dal mount point.
 #
 # Usage:
-#   bash download_models.sh              # modello XL (default, ~10 GB)
-#   MODEL_SIZE=xxl bash download_models.sh  # modello XXL (~13 GB)
-#
-# Requisiti:
-#   - Network Volume montato su /workspace
-#   - Nessun token HuggingFace necessario
+#   bash download_models.sh                        # XL (default, ~10 GB)
+#   MODEL_SIZE=xxl bash download_models.sh         # XXL (~12 GB)
+#   WORKSPACE=/vol bash download_models.sh         # workspace custom
 # =============================================================================
 
 set -e
 
-WORKSPACE="/workspace"
+WORKSPACE="${WORKSPACE:-/workspace}"
 REPO_DIR="$WORKSPACE/HunyuanVideo-Foley"
 MODELS_DIR="$REPO_DIR/models"
 MODEL_SIZE="${MODEL_SIZE:-xl}"
-
-# Cache HF sul Network Volume (SigLIP2 + CLAP, ~1.5 GB)
 export HF_HOME="$WORKSPACE/.hf_cache"
-mkdir -p "$HF_HOME"
 
 echo "============================================================"
-echo " HunyuanVideo-Foley — Download modelli (CPU pod)"
-echo " Modello: $MODEL_SIZE"
+echo " HunyuanVideo-Foley — Download modelli"
+echo " Workspace: $WORKSPACE"
+echo " Modello:   $MODEL_SIZE"
 echo "============================================================"
 
-# ── 1. Clona repo ────────────────────────────────────────────────
-if [ ! -d "$REPO_DIR" ]; then
-    echo "[1/3] Cloning repo..."
-    cd "$WORKSPACE"
-    git clone https://github.com/samcoppola/HunyuanVideo-Foley.git
-else
-    echo "[1/3] Repo già presente, aggiornamento..."
-    cd "$REPO_DIR"
-    git pull
-fi
+mkdir -p "$MODELS_DIR" "$HF_HOME"
 
-# ── 2. Scarica i pesi principali ──────────────────────────────────
+# ── 1. Trova Python >= 3.9 ───────────────────────────────────────
 echo ""
-if [ "$MODEL_SIZE" = "xxl" ]; then
-    echo "[2/3] Downloading model weights (XXL, ~12 GB)..."
+echo "[1/4] Ricerca Python..."
+PYTHON=""
+for candidate in python3.13 python3.12 python3.11 python3.10 python3.9 python3; do
+    if command -v "$candidate" &>/dev/null; then
+        version=$("$candidate" -c "import sys; print(sys.version_info[:2])" 2>/dev/null)
+        if "$candidate" -c "import sys; exit(0 if sys.version_info >= (3,9) else 1)" 2>/dev/null; then
+            PYTHON="$candidate"
+            echo "    Trovato: $PYTHON ($version)"
+            break
+        fi
+    fi
+done
+
+if [ -z "$PYTHON" ]; then
+    echo "ERRORE: nessun Python >= 3.9 trovato. Installane uno prima."
+    exit 1
+fi
+
+# ── 2. Bootstrap pip se mancante ─────────────────────────────────
+echo ""
+echo "[2/4] Verifica pip..."
+if ! "$PYTHON" -m pip --version &>/dev/null; then
+    echo "    pip non trovato, installazione via get-pip.py..."
+    curl -sS https://bootstrap.pypa.io/get-pip.py | "$PYTHON"
+    echo "    pip installato."
 else
-    echo "[2/3] Downloading model weights (XL, ~10 GB)..."
+    echo "    pip già disponibile."
 fi
 
-mkdir -p "$MODELS_DIR"
+"$PYTHON" -m pip install huggingface_hub -q
+echo "    huggingface_hub pronto."
 
-# Installa huggingface_hub se non disponibile (CPU pod minimale)
-if ! python3 -c "import huggingface_hub" 2>/dev/null; then
-    python3 -m pip install huggingface_hub -q
+# ── 3. Clona repo ────────────────────────────────────────────────
+echo ""
+echo "[3/4] Repo..."
+if [ ! -d "$REPO_DIR" ]; then
+    if command -v git &>/dev/null; then
+        cd "$WORKSPACE"
+        git clone https://github.com/samcoppola/HunyuanVideo-Foley.git
+    else
+        apt-get install -y git -q
+        cd "$WORKSPACE"
+        git clone https://github.com/samcoppola/HunyuanVideo-Foley.git
+    fi
+else
+    echo "    Repo già presente."
 fi
 
-export MODELS_DIR MODEL_SIZE
-python3 - <<'PYEOF'
+# ── 4. Download modelli ───────────────────────────────────────────
+echo ""
+echo "[4/4] Download modelli da HuggingFace..."
+
+export MODELS_DIR MODEL_SIZE HF_HOME
+
+"$PYTHON" - <<'PYEOF'
 import os
 from huggingface_hub import snapshot_download
 
-local_dir  = os.environ["MODELS_DIR"]
+models_dir = os.environ["MODELS_DIR"]
 model_size = os.environ.get("MODEL_SIZE", "xl")
 
+# ── Modello principale + VAE + Synchformer ──
 if model_size == "xl":
-    ignore_patterns = ["hunyuanvideo_foley.pth"]
-    print("Incluso:  hunyuanvideo_foley_xl.pth, vae_128d_48k.pth, synchformer_state_dict.pth")
-    print("Saltato:  hunyuanvideo_foley.pth (XXL)")
+    ignore = ["hunyuanvideo_foley.pth"]
+    included = "hunyuanvideo_foley_xl.pth, vae_128d_48k.pth, synchformer_state_dict.pth"
 else:
-    ignore_patterns = ["hunyuanvideo_foley_xl.pth"]
-    print("Incluso:  hunyuanvideo_foley.pth, vae_128d_48k.pth, synchformer_state_dict.pth")
-    print("Saltato:  hunyuanvideo_foley_xl.pth (XL)")
+    ignore = ["hunyuanvideo_foley_xl.pth"]
+    included = "hunyuanvideo_foley.pth, vae_128d_48k.pth, synchformer_state_dict.pth"
 
-print(f"Destinazione: {local_dir}")
-print()
+print(f"  Incluso:  {included}")
+print(f"  Dest:     {models_dir}")
 
 snapshot_download(
     repo_id="tencent/HunyuanVideo-Foley",
-    local_dir=local_dir,
-    ignore_patterns=ignore_patterns,
+    local_dir=models_dir,
+    ignore_patterns=ignore,
     local_dir_use_symlinks=False,
 )
-print("Download completo!")
-PYEOF
+print("  Modello scaricato!")
 
-# ── 3. Pre-scarica cache HuggingFace (SigLIP2 + CLAP) ────────────
-echo ""
-echo "[3/3] Pre-downloading HuggingFace model cache (SigLIP2 + CLAP, ~1.5 GB)..."
-echo "      Questo evita il re-download ad ogni riavvio del pod GPU."
-
-python3 - <<'PYEOF'
-from huggingface_hub import snapshot_download
-
-print("Scaricando google/siglip2-base-patch16-512...")
+# ── Cache HuggingFace (SigLIP2 + CLAP) ──
+# Vengono usati a runtime — meglio averli già sul volume
+print("\n  Scaricando google/siglip2-base-patch16-512 (~400 MB)...")
 snapshot_download(repo_id="google/siglip2-base-patch16-512", local_dir_use_symlinks=False)
 
-print("Scaricando laion/larger_clap_general...")
+print("  Scaricando laion/larger_clap_general (~600 MB)...")
 snapshot_download(repo_id="laion/larger_clap_general", local_dir_use_symlinks=False)
 
-print("Cache HuggingFace scaricata!")
-PYEOF
+print("\n  Cache HuggingFace pronta!")
 
-# ── Verifica ──────────────────────────────────────────────────────
-echo ""
-echo "Verifica file..."
+# ── Verifica ──
+print("\n--- Verifica file ---")
+main = "hunyuanvideo_foley.pth" if model_size == "xxl" else "hunyuanvideo_foley_xl.pth"
+all_ok = True
+for f in [main, "vae_128d_48k.pth", "synchformer_state_dict.pth"]:
+    path = os.path.join(models_dir, f)
+    ok = os.path.exists(path)
+    print(f"  [{'OK' if ok else 'MISSING'}] {f}")
+    if not ok:
+        all_ok = False
 
-export MODELS_DIR MODEL_SIZE
-python3 - <<'PYEOF'
-import os
-
-base       = os.environ["MODELS_DIR"]
-model_size = os.environ.get("MODEL_SIZE", "xl")
-main_model = "hunyuanvideo_foley.pth" if model_size == "xxl" else "hunyuanvideo_foley_xl.pth"
-
-for fname in [main_model, "vae_128d_48k.pth", "synchformer_state_dict.pth"]:
-    full   = os.path.join(base, fname)
-    status = "OK" if os.path.exists(full) else "MISSING"
-    print(f"  [{status}] {fname}")
+if all_ok:
+    print("\nTutto OK — pronto per il pod GPU!")
+else:
+    print("\nAlcuni file mancanti, controlla i log.")
+    exit(1)
 PYEOF
 
 echo ""
 echo "============================================================"
 echo " Download completo!"
-echo "============================================================"
-echo ""
-echo " Ora spegni questo pod CPU e avvia un pod GPU con lo stesso"
-echo " Network Volume, poi esegui:"
-echo ""
-echo "   bash /workspace/HunyuanVideo-Foley/setup_runpod.sh"
+echo " Ora spegni questo pod e avvia un pod GPU con lo stesso"
+echo " Network Volume, poi:"
+echo "   bash $REPO_DIR/setup_runpod.sh"
 echo "============================================================"
