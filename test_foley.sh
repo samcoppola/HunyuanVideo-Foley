@@ -25,11 +25,11 @@
 # ── MODIFICA QUI ─────────────────────────────────────────────────
 VIDEO="${VIDEO:-assets/examples/video1.mp4}"
 PROMPT="${PROMPT:-footsteps on a wooden floor}"
-NEG_PROMPT="${NEG_PROMPT:-noisy, harsh}"
-MODEL_SIZE="${MODEL_SIZE:-xxl}"
+NEG_PROMPT="${NEG_PROMPT:-music, melody, song, instrument, cinematic score, noisy, harsh}"
+MODEL_SIZE="${MODEL_SIZE:-xl}"
 ENABLE_OFFLOAD="${ENABLE_OFFLOAD:-0}"
 STEPS="${STEPS:-50}"
-GUIDANCE="${GUIDANCE:-4.5}"
+GUIDANCE="${GUIDANCE:-7.5}"
 # ─────────────────────────────────────────────────────────────────
 
 set -e
