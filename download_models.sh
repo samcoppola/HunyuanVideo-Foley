@@ -53,7 +53,7 @@ mkdir -p "$MODELS_DIR"
 
 # Installa huggingface_hub se non disponibile (CPU pod minimale)
 if ! python3 -c "import huggingface_hub" 2>/dev/null; then
-    pip install huggingface_hub -q
+    python3 -m pip install huggingface_hub -q
 fi
 
 export MODELS_DIR MODEL_SIZE
